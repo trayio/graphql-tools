@@ -49,6 +49,10 @@ async function delegateToSchemaImplementation(
 ): Promise<any> {
   const { info, args = {} } = options;
   const operation = options.operation || info.operation.operation;
+
+  // console.log('INFO.fieldnodes: ');
+  // console.log(Printer.inspect(info.fieldNodes, true));
+
   const rawDocument: DocumentNode = createDocument(
     options.fieldName,
     operation,
@@ -59,6 +63,13 @@ async function delegateToSchemaImplementation(
     info.operation.variableDefinitions,
     info.operation.name,
   );
+
+  // console.log('NEW DOC: ');
+  // console.log(print(rawDocument));
+  // process.exit()
+  // console.log('info.rootValue: ');
+  // console.log(Printer.inspect(info.rootValue, true));
+
 
   const rawRequest: Request = {
     document: rawDocument,
@@ -93,9 +104,7 @@ async function delegateToSchemaImplementation(
       ),
       transforms,
     );
-  }
-
-  if (operation === 'subscription') {
+  } else if (operation === 'subscription') {
     // apply result processing ???
     return subscribe(
       options.schema,
@@ -104,11 +113,13 @@ async function delegateToSchemaImplementation(
       options.context,
       processedRequest.variables,
     );
+  } else {
+    throw new Error('Invalid operation: ' + options.operation);
   }
 }
 
 function createDocument(
-  targetField: string,
+  targetField: string | string[],
   targetOperation: Operation,
   originalSelections: Array<SelectionNode>,
   fragments: Array<FragmentDefinitionNode>,
@@ -126,7 +137,7 @@ function createDocument(
     args = args.concat(field.arguments || []);
   });
 
-  let selectionSet = null;
+  let selectionSet: SelectionSetNode = null;
   if (selections.length > 0) {
     selectionSet = {
       kind: Kind.SELECTION_SET,
@@ -134,26 +145,36 @@ function createDocument(
     };
   }
 
-  const rootField: FieldNode = {
-    kind: Kind.FIELD,
-    alias: null,
-    arguments: args,
-    selectionSet,
-    name: {
-      kind: Kind.NAME,
-      value: targetField,
-    },
-  };
-  const rootSelectionSet: SelectionSetNode = {
-    kind: Kind.SELECTION_SET,
-    selections: [rootField],
-  };
+  let targetFields: string[] = [];
+  if ( typeof targetField === 'object' && Array.isArray(targetField)) {
+    targetFields = targetField as string[];
+  } else {
+    targetFields = [ targetField ];
+  }
+
+  let currentSelectionSet = selectionSet;
+  for (let i = 0; i < targetFields.length; i++ ) {
+    const field: FieldNode = {
+      kind: Kind.FIELD,
+      alias: null,
+      arguments: args,
+      selectionSet: currentSelectionSet,
+      name: {
+        kind: Kind.NAME,
+        value: targetFields[i],
+      },
+    };
+    currentSelectionSet = {
+      kind: Kind.SELECTION_SET,
+      selections: [field],
+    };
+  }
 
   const operationDefinition: OperationDefinitionNode = {
     kind: Kind.OPERATION_DEFINITION,
     operation: targetOperation,
     variableDefinitions: variables,
-    selectionSet: rootSelectionSet,
+    selectionSet: currentSelectionSet,
     name: operationName,
   };
 

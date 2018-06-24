@@ -90,14 +90,27 @@ class CombinedError extends Error {
 export function checkResultAndHandleErrors(
   result: any,
   info: GraphQLResolveInfo,
-  responseKey?: string,
+  responseKey?: string | string[],
 ): any {
   if (!responseKey) {
     responseKey = info.fieldNodes[0].alias
       ? info.fieldNodes[0].alias.value
       : info.fieldName;
   }
-  if (result.errors && (!result.data || result.data[responseKey] == null)) {
+
+  if (typeof responseKey === 'string') {
+    responseKey = [responseKey];
+  }
+  function resolveData() {
+    let currentData = result.data;
+    for (let i = 0; i < responseKey.length; i++) {
+      const fieldName = responseKey[responseKey.length - 1 - i];
+      currentData = currentData[fieldName];
+    }
+
+    return currentData;
+  }
+  if (result.errors && (!result.data || !resolveData())) {
     // apollo-link-http & http-link-dataloader need the
     // result property to be passed through for better error handling.
     // If there is only one error, which contains a result property, pass the error through
@@ -112,7 +125,7 @@ export function checkResultAndHandleErrors(
       responsePathAsArray(info.path),
     );
   } else {
-    let resultObject = result.data[responseKey];
+    let resultObject = resolveData();
     if (result.errors) {
       resultObject = annotateWithChildrenErrors(
         resultObject,

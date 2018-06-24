@@ -100,6 +100,11 @@ function addVariablesToRootField(
         });
         const name: string = selection.name.value;
         const field: GraphQLField<any, any> = type.getFields()[name];
+
+        if (!field) {
+          throw new Error(`Cannot find field ${name} in type: ${type.name}.`);
+        }
+
         field.args.forEach((argument: GraphQLArgument) => {
           if (argument.name in args) {
             const variableName = generateVariableName(argument.name);

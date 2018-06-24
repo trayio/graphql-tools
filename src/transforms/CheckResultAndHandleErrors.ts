@@ -4,9 +4,9 @@ import { Transform } from './transforms';
 
 export default class CheckResultAndHandleErrors implements Transform {
   private info: GraphQLResolveInfo;
-  private fieldName?: string;
+  private fieldName?: string | string[];
 
-  constructor(info: GraphQLResolveInfo, fieldName?: string) {
+  constructor(info: GraphQLResolveInfo, fieldName?: string | string[]) {
     this.info = info;
     this.fieldName = fieldName;
   }

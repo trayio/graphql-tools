@@ -49,7 +49,7 @@ export type Transform = {
 export interface IDelegateToSchemaOptions<TContext = { [key: string]: any }> {
   schema: GraphQLSchema;
   operation: Operation;
-  fieldName: string;
+  fieldName: string | string[];
   args?: { [key: string]: any };
   context: TContext;
   info: GraphQLResolveInfo;

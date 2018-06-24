@@ -280,6 +280,8 @@ function mergeSchemasImplementation({
     });
   });
 
+  // writeFileSync('./apollo.schema.graphql', printSchema(mergedSchema))
+
   addResolveFunctionsToSchema({
     schema: mergedSchema,
     resolvers: mergeDeep(generatedResolvers, resolvers),
@@ -395,6 +397,8 @@ function createDelegatingResolver(
   fieldName: string,
 ): IFieldResolver<any, any> {
   return (root, args, context, info) => {
+    // console.log('DELEGATING: ' + fieldName)
+    // console.log('ARGS: ' + Printer.inspect(args, false))
     return info.mergeInfo.delegateToSchema({
       schema,
       operation,
@@ -480,10 +484,13 @@ const defaultVisitType = (
     candidateSelector = cands => cands[cands.length - 1];
   }
   const resolveType = createResolveType((_, type) => type);
-  if (name === 'Query' || name === 'Mutation' || name === 'Subscription') {
+  if (name === 'Viewer' || name === 'Query' || name === 'Mutation' || name === 'Subscription') {
     let fields = {};
     let operationName: 'query' | 'mutation' | 'subscription';
     switch (name) {
+      case 'Viewer':
+        operationName = 'query';
+        break;
       case 'Query':
         operationName = 'query';
         break;
@@ -501,17 +508,38 @@ const defaultVisitType = (
       operationName === 'subscription' ? 'subscribe' : 'resolve';
     candidates.forEach(({ type: candidateType, schema }) => {
       const candidateFields = (candidateType as GraphQLObjectType).getFields();
+
       fields = { ...fields, ...candidateFields };
       Object.keys(candidateFields).forEach(fieldName => {
-        resolvers[fieldName] = {
-          [resolverKey]: createDelegatingResolver(
-            schema,
-            operationName,
-            fieldName,
-          ),
-        };
+
+        if (fieldName === 'viewer') {
+          resolvers[fieldName] = {
+            [resolverKey]: () => ({}),
+          };
+        } else if (name === 'Viewer') {
+          resolvers[fieldName] = {
+            [resolverKey]: createDelegatingResolver(
+              schema,
+              operationName,
+              [fieldName, 'viewer'] as any,
+            ),
+          };
+        } else {
+          resolvers[fieldName] = {
+            [resolverKey]: createDelegatingResolver(
+              schema,
+              operationName,
+              fieldName,
+            ),
+          };
+        }
       });
     });
+
+    // if (name === 'Query') {
+    //   console.log('resolvers --------------------- ' + Printer.inspect(resolvers))
+    // }
+
     const type = new GraphQLObjectType({
       name,
       fields: fieldMapToFieldConfigMap(fields, resolveType, false),
